@@ -40,7 +40,7 @@ CVSequencer {
 	}
 
 	initGUI {
-		gui = SequencerGUI(this);
+		gui = CVSequencerGUI(this);
 	}
 
 	start { |trackIndex, quantize = \immediate|
@@ -238,7 +238,6 @@ CVTrack {
 	}
 }
 
-// Define the CVPattern class
 CVPattern {
 	var <>steps, <nSteps, <>scale, <>tuning, <>tempoMultiplier;
 	var <minVal, <maxVal, <>cvQuantizationStep;
@@ -303,8 +302,7 @@ CVPattern {
 	}
 }
 
-// Define the SequencerGUI class
-SequencerGUI {
+CVSequencerGUI {
 	var <sequencer, <window, <trackButtons, <playStopButtons, <tempoBox;
 	var <currentTrackIndex, <currentPatternIndex;
 	var <cvEditor, <patternParamControls, <trackParamControls;
