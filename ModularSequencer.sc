@@ -33,26 +33,30 @@ CVSequencer {
 		}).add;
 	}
 
-	// Initialize the synths for sending control voltage
+	// Initialize the synths for each track to send control voltage
 	initCVSynths {
 		tracks.do({_.initCVSynth});
 		// FIXME \clockSynth  Make a master clock?
 	}
 
+	// Initialize the GUI
 	initGUI {
 		gui = CVSequencerGUI(this);
 	}
 
+	// Start playing a given track
 	start { |trackIndex, quantize = \immediate|
 		tracks[trackIndex].start(quantize);
 		gui.updatePlayStopButton(trackIndex, true);
 	}
 
+	// Stop playing a given track
 	stop { |trackIndex, quantize = \immediate|
 		tracks[trackIndex].stop(quantize);
 		gui.updatePlayStopButton(trackIndex, false);
 	}
 
+	// Save the state of the seqeuncer and write to a file
 	saveState { |filepath|
 		currentState = (
 			numTracks: numTracks,
@@ -62,7 +66,7 @@ CVSequencer {
 		currentState.writeArchive(filepath);
 	}
 
-	// FIXME not working
+	// Load a saved sequencer state from a file
 	loadState { |filepath|
 		var loadedState = Object.readArchive(filepath);
 		numTracks = loadedState.numTracks;
@@ -95,20 +99,31 @@ CVTrack {
 		isPlaying = false;
 	}
 
+	// Private helper to allow us to specify output channels as they're
+	// written on the faceplate of the ES-9.
+	// FIXME Implement this in the functions to create the CV synth
+	prOutputChannelsForES9 { |out|
+		^out+7
+	}
+
+	// Initialize the synth that will give CV pulses
 	initCVSynth {
 		cvSynth = EuroCVSynth(cvOut: cvOut, gateOut: gateOut);
 	}
 
 	cvOut_ { |x|
 		cvOut = x;
+		// FIXME Just update the attribute instead of creating a new object
 		cvSynth = EuroCVSynth(cvOut: cvOut, gateOut: gateOut);
 	}
 
 	gateOut_ { |x|
 		gateOut = x;
+		// FIXME Just update the attribute instead of creating a new object
 		cvSynth = EuroCVSynth(cvOut: cvOut, gateOut: gateOut);
 	}
 
+	// Start playing this track
 	start { |quantize|
 		var startFunc = {
 			isPlaying = true;
@@ -117,14 +132,18 @@ CVTrack {
 
 		switch(quantize,
 			\immediate, { startFunc.value },
-			\nextBeat, { sequencer.clock.schedAbs(sequencer.clock.nextTimeOnGrid(1), startFunc) },
+			\nextBeat, {
+				sequencer.clock.schedAbs(
+					sequencer.clock.nextTimeOnGrid(1),
+					startFunc)
+			},
 			\masterTrack, {
 				// FIXME Implement synchronization with master track
 			}
 		);
 	}
 
-	// Play a single step in test mode using the simple testing synth
+	// Play a single note in test mode using the simple testing synth
 	prPlayStepTestMode { |stepValue|
 		var activePattern = patterns[currentPattern];
 		var scale = activePattern.scale;
@@ -142,16 +161,15 @@ CVTrack {
 				\gate, 1
 			]
 		);
-
 	}
 
-	// Play a single step: set the CV output
+	// Play a single step: set the CV output and send a gate trigger
 	prPlayStep { |stepValue|
 		var activePattern = patterns[currentPattern];
 		var event;
+		// FIXME to incorporate different tunings use:
+		//     activePattern.scale(activePattern.tuning)
 		var cvValue = ( // Convert from chromatic scale degree to ES-9 output
-			// FIXME to incorporate tunings use:
-			//     activePattern.scale(activePattern.tuning)
 			activePattern.scale
 			.degreeToRatio(stepValue, octave: 0) // Freq multiplier relative to base VCO frequency
 			.log2 // Convert to V/oct: +1 oct == +1 V
@@ -168,6 +186,7 @@ CVTrack {
 		event.play;
 	}
 
+	// Start playing the selected pattern on this track
 	playCurrentPattern {
 		var beatDuration = sequencer.clock.beatDur;
 
@@ -177,13 +196,14 @@ CVTrack {
 			routine = Routine({
 				var stepIndex = 0;
 
-				// FIXME only switch patterns when a pattern finishes
 				inf.do {
+					// FIXME only switch patterns at the beginning/end of a pattern
 					var pattern = patterns[currentPattern];
 					var stepValue = pattern.steps[stepIndex];
 					var dur = (beatDuration * pattern.tempoMultiplier);
-					var scale;
 
+					// FIXME Delete this mini-block?
+					var scale;
 					scale = pattern.scale.contentsCopy;
 					scale.tuning = pattern.tuning;
 
@@ -204,6 +224,7 @@ CVTrack {
 		});
 	}
 
+	// Stop playing this track
 	stop { |quantize|
 		var stopFunc = {
 			isPlaying = false;
@@ -230,7 +251,9 @@ CVTrack {
 	}
 
 	setState { |state|
-		patterns = state.patterns.collect { |patternState| CVPattern.new.setState(patternState) };
+		patterns = state.patterns.collect { |patternState|
+			CVPattern.new.setState(patternState)
+		};
 		currentPattern = state.currentPattern;
 		cvOut = state.cvOut;
 		gateOut = state.gateOut;
@@ -244,6 +267,7 @@ CVPattern {
 
 	*new { |nSteps = 16, minVal = 0, maxVal = 30, cvQuantizationStep = 1|
 		^super.new.init(nSteps, minVal, maxVal, cvQuantizationStep);
+		// FIXME replace with ^super.newCopyArgs(.......).init;
 	}
 
 	init { |argLength, argMinVal, argMaxVal, argCvQuantizationStep|
@@ -257,22 +281,23 @@ CVPattern {
 		tempoMultiplier = 1;
 	}
 
-	// Set the length of the pattern, cutting or filling in as needed
+	// Set the length of the pattern, cutting or filling in steps as needed
 	nSteps_ { |n|
 		n = n.asInteger;
 		if (n > nSteps) {
 			steps = steps ++ (0!(n - nSteps))
 		} {
-			steps = steps[0..n];
+			steps = steps[0..n]; // FIXME Is this necessary?
 		};
 		nSteps = n;
 	}
 
-	// Make sure you can't lose the sequence by changing the min or max value
+	// Make sure you can't lose part of the sequence by changing the min value
 	minVal_ { |x|
 		minVal = minItem([x] ++ steps);
 	}
 
+	// Make sure you can't lose part of the sequence by changing the max value
 	maxVal_ { |x|
 		maxVal = maxItem([x] ++ steps);
 	}
@@ -341,13 +366,13 @@ CVSequencerGUI {
 		var controlPanel = HLayout();
 		var cvEditorPanel = VLayout();
 		var activePattern = this.getActivePattern;
-		var patternParamNames = [
+		var patternParamNames = [ // Numeric params for a CVPattern
 			'nSteps',
 			'minVal',
 			'maxVal',
 			'cvQuantizationStep'
 		];
-		var trackParamNames = [
+		var trackParamNames = [ // Numeric params for a CVTrack
 			'cvOut',
 			'gateOut'
 		];
