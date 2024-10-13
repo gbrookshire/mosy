@@ -1,6 +1,6 @@
 // SuperCollider Step Sequencer for Modular Synth
 
-Sequencer {
+CVSequencer {
 	var <numTracks, <numPatternsPerTrack, <testMode;
 	var <clock, <tracks, <gui, <currentState;
 
@@ -12,7 +12,7 @@ Sequencer {
 
 	init {
 		clock = TempoClock.new(2);  // 120 BPM  // FIXME is this right?
-		tracks = Array.fill(numTracks, { Track.new(this) });
+		tracks = Array.fill(numTracks, { CVTrack.new(this) });
 		if(
 			testMode,
 			{ this.initTestSynth },
@@ -68,14 +68,13 @@ Sequencer {
 		numTracks = loadedState.numTracks;
 		clock.tempo = loadedState.tempo;
 		tracks = loadedState.tracks.collect { |trackState|
-			Track.new(this).setState(trackState);
+			CVTrack.new(this).setState(trackState);
 		};
 		gui.refresh;
 	}
 }
 
-// Define the Track class
-Track {
+CVTrack {
 	var <sequencer, <patterns, <>currentPattern;
 	var <isPlaying;
 	var cvSynth, <cvOut, <gateOut;
@@ -88,7 +87,7 @@ Track {
 	init {
 		patterns = Array.fill(
 			sequencer.numPatternsPerTrack,
-			{ TrackPattern.new }
+			{ CVPattern.new }
 		);
 		currentPattern = 0;
 		cvOut = 0;
@@ -239,8 +238,8 @@ Track {
 	}
 }
 
-// Define the TrackPattern class
-TrackPattern {
+// Define the CVPattern class
+CVPattern {
 	var <>steps, <nSteps, <>scale, <>tuning, <>tempoMultiplier;
 	var <minVal, <maxVal, <>cvQuantizationStep;
 
