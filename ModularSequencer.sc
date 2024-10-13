@@ -230,7 +230,7 @@ CVTrack {
 	}
 
 	setState { |state|
-		patterns = state.patterns.collect { |patternState| Pattern.new.setState(patternState) };
+		patterns = state.patterns.collect { |patternState| CVPattern.new.setState(patternState) };
 		currentPattern = state.currentPattern;
 		cvOut = state.cvOut;
 		gateOut = state.gateOut;
