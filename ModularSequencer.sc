@@ -79,7 +79,7 @@ Track {
 	var <sequencer, <patterns, <>currentPattern;
 	var <isPlaying;
 	var cvSynth, <cvOut, <gateOut;
-	var synthInstance, routine;
+	var routine;
 
 	*new { |sequencer|
 		^super.newCopyArgs(sequencer).init;
@@ -134,15 +134,11 @@ Track {
 		var freq = scale.degreeToFreq(
 			stepValue, rootFreq: 200, octave: 0
 		);
-		("Playing step in test mode: " ++ stepValue).postln;
+		("Playing in test mode: " ++ stepValue).postln;
 		Synth(
 			\testSine,
 			[
 				\freq, freq,
-				// \degree, stepValue,
-				// \octave, 4,
-				// \scale, patterns[currentPattern].scale,
-				// \tuning, patterns[currentPattern].tuning,
 				\amp, 0.1,
 				\gate, 1
 			]
@@ -155,11 +151,11 @@ Track {
 		var activePattern = patterns[currentPattern];
 		var event;
 		var cvValue = ( // Convert from chromatic scale degree to ES-9 output
-			activePattern.scale
 			// FIXME to incorporate tunings use:
 			//     activePattern.scale(activePattern.tuning)
-			.degreeToRatio(stepValue, octave: 0) // Get freq multiplier
-			.log2 // Convert to v/oct: +1 oct == +1 V
+			activePattern.scale
+			.degreeToRatio(stepValue, octave: 0) // Freq multiplier relative to base VCO frequency
+			.log2 // Convert to V/oct: +1 oct == +1 V
 			/ 10 // Scale to the Voltage limits of the ES-9
 		);
 
@@ -167,11 +163,10 @@ Track {
 			type: \eurocv,
 			euro: cvSynth,
 			amp: cvValue,
-			// sustain: 1  // How long the gate stays high
-			// legato: 0  // Portamento
+			// sustain: 1  // How long the gate stays high // FIXME implement
+			// legato: 0  // Portamento  // FIXME implement
 		);
 		event.play;
-		("Playing CV step: " ++ stepValue).postln;
 	}
 
 	playCurrentPattern {
@@ -193,31 +188,10 @@ Track {
 					scale = pattern.scale.contentsCopy;
 					scale.tuning = pattern.tuning;
 
-					if(synthInstance.notNil, { synthInstance.free }); // FIXME do we need this?
-
 					if(
 						sequencer.testMode,
 						{ this.prPlayStepTestMode(stepValue) },
 						{ this.prPlayStep(stepValue) }
-						// // if not in test mode, send out CV
-						// // Convert the scale degree to V, for 1v/oct CV control,
-						// // then divide by 10 to adjust for ES-9 output pattern.
-						// var cvValue = (
-						// 	scale.degreeToRatio(stepValue, octave: 0).log2 / 10
-						// );
-						// cvValue.postln;
-						// // synthInstance = Synth(
-						// // 	\cvSynth,
-						// // 	[
-						// // 		\cv, stepValue,
-						// // 		\gate, 1,
-						// // 		\cvOut, cvOut, // FIXME
-						// // 		\gateOut, gateOut // FIXME
-						// //      \clockBus, clockBus // FIXME
-						// // 	]
-						// // );
-						// // Synth(\gateSynth, [\dur, dur / 2, \gate, gateValue]); // FIXME not implemented
-						// // Synth(\clockSynth, [\dur, dur / 5]); // FIXME not implemented
 					);
 
 					dur.wait;
@@ -235,7 +209,6 @@ Track {
 		var stopFunc = {
 			isPlaying = false;
 			if(routine.notNil, { routine.stop });
-			if(synthInstance.notNil, { synthInstance.free });
 		};
 
 		switch(quantize,
